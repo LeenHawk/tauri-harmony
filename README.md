@@ -89,13 +89,16 @@ These checks prove tool availability and cross-linking, not device execution, HA
 signing, or application compatibility. Sign and test your application on its target
 HarmonyOS/OpenHarmony device separately.
 
-## First publication setup
+## Public access
 
-The repository is public. GitHub initially creates GHCR packages as private; after the
-first push, the owner must open the [package settings](https://github.com/users/LeenHawk/packages/container/tauri-harmony/settings)
-and set visibility to **Public**. Then rerun the failed anonymous-access check. Consumers
-need no credentials once that check passes. `org.opencontainers.image.source` links the
-package to this repository; Actions publishes using its own `GITHUB_TOKEN`.
+The repository and image are public; consumers need no registry credentials.
+`org.opencontainers.image.source` links the package to this repository, and Actions
+publishes using its own `GITHUB_TOKEN`. The publication job checks anonymous access.
+
+When reusing this workflow under another account, if that check reports a private
+package, open its package settings and change visibility to **Public**, then rerun
+the failed job. This repository's [package settings](https://github.com/users/LeenHawk/packages/container/tauri-harmony/settings)
+are available to its owner.
 
 ## Sources and licensing
 
