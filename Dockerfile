@@ -22,6 +22,7 @@ COPY scripts/prepare-toolchain.py tauri-pins.json ./
 RUN python3 prepare-toolchain.py \
     && CARGO_PROFILE_RELEASE_LTO=thin CARGO_PROFILE_RELEASE_CODEGEN_UNITS=8 \
        cargo install tauri-cli --path /opt/ohos-tauri/tauri/crates/tauri-cli --root /opt/ohos-tools \
+         --no-default-features --features native-tls \
     && cargo install ohrs --version 1.5.0 --locked --root /opt/ohos-tools \
     && rm -rf /opt/ohos-tauri/tauri/target /usr/local/cargo/registry /usr/local/cargo/git
 COPY scripts/env.sh scripts/ohos.cmake scripts/smoke.sh ./
