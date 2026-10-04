@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import tomllib
 
 root = Path.cwd()
 source = Path(os.environ["OHOS_TAURI_SOURCES"]).resolve()
@@ -18,24 +19,29 @@ for name, pin in pins.items():
                     f"https://github.com/{pin['repository']}.git"], check=True)
     subprocess.run(["git", "-C", str(checkout), "fetch", "--depth", "1", "origin", pin["revision"]], check=True)
     subprocess.run(["git", "-C", str(checkout), "checkout", "--detach", "FETCH_HEAD"], check=True)
-# Match the Ability revision in Tauri's own upstream lockfile.
+# Keep Rust Ability and the packaged HAR on the same application-neutral source.
 for checkout in (source / "tauri", source / "wry", source / "tao"):
     for manifest in checkout.rglob("Cargo.toml"):
-        text = manifest.read_text().replace(
-            'git = "https://github.com/harmony-contrib/openharmony-ability.git"',
-            'git = "https://github.com/harmony-contrib/openharmony-ability.git", rev = "' + pins["ability"]["revision"] + '"')
+        text = manifest.read_text()
+        for package, directory in (("openharmony-ability", "ability"), ("openharmony-ability-derive", "derive")):
+            def replace_source(match):
+                return re.sub(r'git = "[^"]+"(?:, (?:rev|branch|tag) = "[^"]+")?',
+                              lambda _: 'path = ' + json.dumps(str(source / 'ability/crates' / directory)),
+                              match.group(0))
+            text = re.sub(rf'^{package} = .*$', replace_source, text, flags=re.MULTILINE)
         manifest.write_text(text)
 upstream = source / "tauri/Cargo.toml"
 text = upstream.read_text()
 for name in ("wry", "tao", "cargo-mobile2"):
-    text = re.sub(rf'^{name} = .*$', f'{name} = {{ path = "{source / name}" }}', text, flags=re.MULTILINE)
+    text = re.sub(rf'^{name} = .*$', lambda _: f'{name} = {{ path = {json.dumps(str(source / name))} }}', text, flags=re.MULTILINE)
 upstream.write_text(text)
-# Huawei's SDK has native directly below openharmony, without an API subdir.
-env_file = source / "cargo-mobile2/src/open_harmony/env.rs"
-text = env_file.read_text()
-pattern = r"self\.ohos_home(?:\s*\.parent\(\)\s*\.unwrap\(\)){3}\s*\.as_os_str\(\)\s*\.to_os_string\(\)"
-text, count = re.subn(pattern, 'std::env::var_os("DEVECO_SDK_HOME").expect("DEVECO_SDK_HOME is required")', text, count=1)
-if count != 1:
-    raise ValueError("Upstream OpenHarmony SDK layout helper changed")
-env_file.write_text(text)
 marker.write_text(json.dumps(pins, indent=2) + "\n")
+cli = tomllib.loads((source / "tauri/crates/tauri-cli/Cargo.toml").read_text())["package"]
+runtime = tomllib.loads((source / "tauri/crates/tauri/Cargo.toml").read_text())["package"]
+(source / "cargo-tauri-source.json").write_text(json.dumps({
+    "repository": pins["tauri"]["repository"],
+    "revision": pins["tauri"]["revision"],
+    "cli_version": cli["version"],
+    "tauri_version": runtime["version"],
+    "dependencies": pins,
+}, indent=2) + "\n")
