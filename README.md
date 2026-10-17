@@ -45,8 +45,8 @@ OCI image labels. A failed build or toolchain check does not replace `latest`.
 Experimental source commits and SDK archive checksums are pinned. The daily job does
 **not** silently follow upstream branches. Update [tauri-pins.json](tauri-pins.json) to
 advance the experimental stack together, then let this workflow validate it.
-The current Ability pin matches Tauri's lockfile. The source preparation also fixes
-cargo-mobile2's SDK-directory lookup for the vendor command-line-tools layout.
+The pinned Tauri runtime is 2.11.6. Rust Ability and its ArkTS HAR use the same
+fork source; cargo-mobile2 respects the explicitly configured SDK root.
 
 ## Use from another repository
 
@@ -71,13 +71,16 @@ jobs:
           source /opt/tauri-harmony/env.sh
           export PATH="$HARMONY_TOOLS_DIR/command-line-tools/tool/node/bin:$PATH"
           cd src-tauri
-          cargo tauri ohos build --ci --target aarch64 --ignore-version-mismatches
+          cargo tauri ohos build --ci --target aarch64
 ```
 
 Adapt the frontend command, Tauri directory, and generated HAP configuration to your
 application. Initialize its OHOS project with `cargo tauri ohos init` first if necessary.
-The experimental Hvigor template may require an explicit `--release` in its native
-build callback; application packaging owns that configuration.
+`ohos build` compiles Rust once for the requested target and profile; the generated
+Hvigor callback skips native compilation during packaging. `ohos dev` retains its
+rebuild callback and passes the selected target/profile. Application-owned templates
+that omit the callback remain compatible. The CLI loads `tauri.ohos.conf.json`
+automatically and does not synchronize versions into `AppScope/app.json5`.
 
 Host Node 24 stays the default for frontend tools. Hvigor may require the SDK's bundled
 Node; select it only for HAP commands, as shown above. Use `pnpm` at the version your
@@ -108,3 +111,16 @@ The SDK is fetched from the [6.0.0.858 archive mirror](https://github.com/ErBWs/
 with both archive part checksums verified in [install-sdk.sh](scripts/install-sdk.sh).
 Tauri and its dependencies are fetched from the repositories and commits listed in
 [tauri-pins.json](tauri-pins.json).
+
+## CLI source identity
+
+`cargo-tauri` is compiled from the exact `tauri` repository/revision in
+[tauri-pins.json](tauri-pins.json), using the native TLS backend. The CLI package
+version and the Rust `tauri` runtime version are separate version numbers.
+The image records both, the source revision, and dependency pins in
+`/opt/ohos-tauri/cargo-tauri-source.json`; inspect it alongside `cargo tauri --version`.
+The OCI revision label identifies this image repository, not the Tauri source commit.
+
+Keep application version constraints and CLI mismatch checks enabled. gproxy and
+TauriTavern can use this common runtime baseline while owning their application
+metadata, version injection and signing configuration independently.

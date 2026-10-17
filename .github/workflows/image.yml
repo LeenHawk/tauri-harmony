@@ -79,6 +79,7 @@ jobs:
         run: bash /opt/tauri-harmony/smoke.sh
 
   publish:
+    if: github.ref == 'refs/heads/main'
     needs: [build, verify]
     runs-on: ubuntu-latest
     permissions:
